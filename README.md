@@ -8,13 +8,26 @@ and release have not been published yet.
 
 ## Install and configure
 
-From a checkout, install an isolated command with [uv](https://docs.astral.sh/uv/):
+For agent use, complete all three steps: **install the CLI, configure your vault,
+and install the skill for your agent**. No `AGENTS.md` changes are needed.
+
+From a checkout, using [uv](https://docs.astral.sh/uv/):
 
 ```sh
 uv tool install .
 obsread config set vault '/absolute/path/to/your/vault'
-obsread config show
+obsread skill install codex
 ```
+
+Choose `pi` or `antigravity` instead of `codex` as appropriate; you can install for
+multiple agents. For standalone shell use, skip the skill step. The skill is
+included in the Python package, so installing it does not require a separate
+download or network access. Installing the CLI does not silently install skills.
+
+After the first public PyPI release, replace `uv tool install .` with
+`uv tool install obsread`. All other steps remain the same.
+
+Check your saved vault with `obsread config show`.
 
 The default vault is independent of your working directory. Resolution order:
 `--vault` > `OBSREAD_VAULT` > the saved user setting. There is no automatic switch
@@ -103,33 +116,56 @@ not file-size or token limits; parsing may read the entire source file locally.
 | 6 | Output exceeds limits |
 | 7 | File IO or permission error |
 
-## Explicit Codex skill
+## Agent skills
 
-Copy `skills/obsread` into the user skill directory. In PowerShell:
-
-```powershell
-New-Item -ItemType Directory -Force "$HOME/.agents/skills" | Out-Null
-Copy-Item -Recurse ./skills/obsread "$HOME/.agents/skills/obsread"
-```
-
-On macOS/Linux:
+Install instructions for the agent you use:
 
 ```sh
-mkdir -p ~/.agents/skills
-cp -R skills/obsread ~/.agents/skills/obsread
+obsread skill install codex
+obsread skill install pi
+obsread skill install antigravity
 ```
 
-If it is already installed, update that existing folder rather than nesting a
-second copy inside it. In Codex, invoke it explicitly:
+| Agent | User skill directory | Explicit invocation |
+| --- | --- | --- |
+| Codex | `~/.agents/skills/obsread` | `$obsread <request and Wikilink>` |
+| Pi | `~/.pi/agent/skills/obsread` | `/skill:obsread <request and Wikilink>` |
+| Antigravity CLI | `~/.gemini/config/skills/obsread` | `/obsread <request and Wikilink>` |
+
+Pi honors `PI_CODING_AGENT_DIR` when it is set. Antigravity's directory is shared
+with its App. Use `obsread skill path pi` (or another agent name) to inspect the
+destination without writing anything.
+
+For example, in Pi:
 
 ```text
-$obsread 请分析 [[2026-11-25#^ui-hot-reload]] 中的设计。
+/skill:obsread 请分析 [[2026-11-25#^ui-hot-reload]] 中的设计。
 ```
 
-The skill disables implicit invocation in its Codex metadata. No `AGENTS.md`
-changes are required. The CLI must be on the agent's PATH and the configured
-vault must be accessible. Other agents can use the same CLI; skill installation
-and explicit invocation syntax depend on that agent.
+Reload skills after installing: Pi uses `/reload`, Antigravity CLI uses
+`/skills reload`; start a new agent session if necessary. Codex detects skill
+changes automatically; restart it if the skill does not appear.
+
+Codex metadata disables implicit invocation. The Pi installer adds Pi's
+`disable-model-invocation: true` frontmatter. Antigravity exposes skills as slash
+commands; do not assume Codex's invocation policy controls Antigravity.
+
+The CLI must be on the agent's PATH and the configured vault must be accessible.
+Skill discovery and explicit invocation behavior are described in the official
+[Codex](https://developers.openai.com/codex/skills),
+[Pi](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/skills.md)
+and [Antigravity](https://antigravity.google/docs/skills) documentation.
+
+Re-running an install with identical files is harmless. If existing files differ,
+the installer refuses to overwrite them. Review local changes, then run, for example,
+`obsread skill install pi --force` to replace the two bundled files. Extra personal
+files in the skill folder are preserved. After upgrading the CLI, re-run the skill
+installer for each agent you use; installed skills do not silently update.
+
+For manual installation or another compatible agent, download `obsread-skill.zip`
+from a GitHub Release and extract its `obsread` folder into that agent's skill
+directory. The canonical source is `skills/obsread`; keep its instructions together
+with its metadata. Pi's explicit-only field must be added when installing manually.
 
 ## Development
 
@@ -143,6 +179,10 @@ uv build --no-sources
 
 Tests use temporary vaults and never write to your real notes. CI runs on
 Windows, macOS and Linux with Python 3.10 and 3.14.
+
+See [architecture and scope](docs/architecture.md) for implementation decisions,
+responsibility boundaries, and deferred features. Usage lives in this README;
+skill behavior lives in `skills/obsread/SKILL.md`; acceptance cases live in tests.
 
 ## Releases
 
@@ -158,7 +198,8 @@ push a matching tag such as `v0.1.0`. The release workflow:
 2. Verifies the tag matches the package version and builds the wheel and sdist.
 3. Packages the standalone skill as `obsread-skill.zip` and records SHA-256 hashes.
 4. Publishes the Python distributions through PyPI Trusted Publishing.
-5. Creates a GitHub Release containing distributions, the skill, and checksums.
+5. Creates a GitHub Release containing distributions, the skill, checksums, and
+   first-use instructions from `docs/release-notes.md`.
 
 After a public PyPI release, installation will be `uv tool install obsread`.
 The workflow does not automatically choose versions or publish on every commit.

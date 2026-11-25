@@ -40,3 +40,4 @@ jobs:
           uv pip install --python "$smoke_python" dist/*.whl
           "$smoke_python" -m obsread --version
           "$smoke_python" -m obsread --help
+          "$smoke_python" -c "from importlib.resources import files; from obsread.skills import bundled_files; assert files('obsread').joinpath('_skill', 'SKILL.md').is_file(); assert 'disable-model-invocation: true' in bundled_files('pi')['SKILL.md'].decode()"
