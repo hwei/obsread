@@ -3,18 +3,19 @@
 Read an Obsidian Wikilink from local Markdown and return only the requested note,
 heading section, or block subtree. Obsidian does not need to be running.
 
-Python 3.10+ is required. The project is under local development; a public package
-and release have not been published yet.
+Python 3.10+ is required. Distributed under the [MIT license](LICENSE).
+Download packages from [GitHub Releases](https://github.com/hwei/obsread/releases).
+PyPI publication is not enabled yet.
 
 ## Install and configure
 
 For agent use, complete all three steps: **install the CLI, configure your vault,
 and install the skill for your agent**. No `AGENTS.md` changes are needed.
 
-From a checkout, using [uv](https://docs.astral.sh/uv/):
+Install the published wheel using [uv](https://docs.astral.sh/uv/):
 
 ```sh
-uv tool install .
+uv tool install 'https://github.com/hwei/obsread/releases/download/v0.1.0/obsread-0.1.0-py3-none-any.whl'
 obsread config set vault '/absolute/path/to/your/vault'
 obsread skill install codex
 ```
@@ -24,8 +25,11 @@ multiple agents. For standalone shell use, skip the skill step. The skill is
 included in the Python package, so installing it does not require a separate
 download or network access. Installing the CLI does not silently install skills.
 
-After the first public PyPI release, replace `uv tool install .` with
-`uv tool install obsread`. All other steps remain the same.
+For another version, use its wheel URL from GitHub Releases. From a source
+checkout, use `uv tool install .` instead. To upgrade an existing installation,
+run `uv tool install --reinstall '<new release wheel URL>'`, then re-run the skill
+installer for each agent you use. Once PyPI publication is enabled, installation
+will also be available as `uv tool install obsread`.
 
 Check your saved vault with `obsread config show`.
 
@@ -158,7 +162,7 @@ and [Antigravity](https://antigravity.google/docs/skills) documentation.
 
 Re-running an install with identical files is harmless. If existing files differ,
 the installer refuses to overwrite them. Review local changes, then run, for example,
-`obsread skill install pi --force` to replace the two bundled files. Extra personal
+`obsread skill install pi --force` to replace the bundled files. Extra personal
 files in the skill folder are preserved. After upgrading the CLI, re-run the skill
 installer for each agent you use; installed skills do not silently update.
 
@@ -186,10 +190,9 @@ skill behavior lives in `skills/obsread/SKILL.md`; acceptance cases live in test
 
 ## Releases
 
-Before the first public release, choose a license, create the GitHub repository,
-confirm the PyPI project name, and configure a PyPI Trusted Publisher for this
-repository's `release.yml` workflow and `pypi` environment. Source publication
-and package publication are separate setup steps.
+GitHub Releases are the current distribution channel. PyPI publishing is opt-in
+and is disabled while the repository Actions variable `PUBLISH_PYPI` is unset or
+not `true`.
 
 Update `project.version` in `pyproject.toml` and refresh `uv.lock`, commit, then
 push a matching tag such as `v0.1.0`. The release workflow:
@@ -197,9 +200,18 @@ push a matching tag such as `v0.1.0`. The release workflow:
 1. Runs the CI checks.
 2. Verifies the tag matches the package version and builds the wheel and sdist.
 3. Packages the standalone skill as `obsread-skill.zip` and records SHA-256 hashes.
-4. Publishes the Python distributions through PyPI Trusted Publishing.
-5. Creates a GitHub Release containing distributions, the skill, checksums, and
+4. Creates a GitHub Release containing distributions, the skill, checksums, and
    first-use instructions from `docs/release-notes.md`.
+5. If `PUBLISH_PYPI=true`, also publishes the Python distributions through PyPI
+   Trusted Publishing. GitHub publication does not depend on PyPI credentials.
 
-After a public PyPI release, installation will be `uv tool install obsread`.
-The workflow does not automatically choose versions or publish on every commit.
+To enable PyPI later, confirm the project name, configure a Trusted Publisher for
+GitHub owner `hwei`, repository `obsread`, workflow `release.yml`, and environment
+`pypi`, then set the repository variable:
+
+```sh
+gh variable set PUBLISH_PYPI --body true --repo hwei/obsread
+```
+
+The next version tag will publish to both destinations. The workflow does not
+automatically choose versions or publish on every commit.

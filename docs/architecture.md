@@ -45,7 +45,8 @@ choose the vault.
 include it as package resources; the installer adds Pi's explicit-only frontmatter
 when targeting Pi. Codex's invocation policy lives in `agents/openai.yaml`.
 Antigravity's supported slash-command entry point is documented in the README;
-Codex invocation metadata is not assumed to control other clients.
+Codex invocation metadata is not assumed to control other clients. The MIT notice
+is included with the installed skill and the standalone ZIP.
 
 Skill installation is opt-in, does not change global agent instructions, and
 refuses differing existing files unless `--force` is provided. Extra user files

@@ -35,6 +35,7 @@ def bundled_files(agent: str) -> dict[str, bytes]:
     return {
         "SKILL.md": content.encode("utf-8"),
         "agents/openai.yaml": root.joinpath("agents").joinpath("openai.yaml").read_bytes(),
+        "LICENSE": root.joinpath("LICENSE").read_bytes(),
     }
 
 

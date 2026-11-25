@@ -1,5 +1,6 @@
 ---
 name: obsread
+license: MIT
 description: Read explicitly supplied Obsidian Wikilinks as precise local Markdown sections or block subtrees using the obsread CLI.
 ---
 

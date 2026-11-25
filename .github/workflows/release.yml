@@ -48,6 +48,7 @@ jobs:
           if-no-files-found: error
 
   pypi:
+    if: vars.PUBLISH_PYPI == 'true'
     needs: build
     runs-on: ubuntu-latest
     environment: pypi
@@ -67,7 +68,7 @@ jobs:
           skip-existing: true
 
   github:
-    needs: [build, pypi]
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -80,4 +81,8 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --notes-file docs/release-notes.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          wheel_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/obsread-$version-py3-none-any.whl"
+          sed "s|{{WHEEL_URL}}|$wheel_url|g" docs/release-notes.md > "$RUNNER_TEMP/obsread-release-notes.md"
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --notes-file "$RUNNER_TEMP/obsread-release-notes.md"
