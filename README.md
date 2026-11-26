@@ -1,21 +1,23 @@
 # obsread
 
+[![PyPI version](https://img.shields.io/pypi/v/obsread)](https://pypi.org/project/obsread/)
+
 Read an Obsidian Wikilink from local Markdown and return only the requested note,
 heading section, or block subtree. Obsidian does not need to be running.
 
 Python 3.10+ is required. Distributed under the [MIT license](LICENSE).
-Download packages from [GitHub Releases](https://github.com/hwei/obsread/releases).
-PyPI publication is not enabled yet.
+Install from [PyPI](https://pypi.org/project/obsread/) or download packages from
+[GitHub Releases](https://github.com/hwei/obsread/releases).
 
 ## Install and configure
 
 For agent use, complete all three steps: **install the CLI, configure your vault,
 and install the skill for your agent**. No `AGENTS.md` changes are needed.
 
-Install the published wheel using [uv](https://docs.astral.sh/uv/):
+Install the CLI from PyPI using [uv](https://docs.astral.sh/uv/):
 
 ```sh
-uv tool install 'https://github.com/hwei/obsread/releases/download/v0.1.0/obsread-0.1.0-py3-none-any.whl'
+uv tool install obsread
 obsread config set vault '/absolute/path/to/your/vault'
 obsread skill install codex
 ```
@@ -25,11 +27,13 @@ multiple agents. For standalone shell use, skip the skill step. The skill is
 included in the Python package, so installing it does not require a separate
 download or network access. Installing the CLI does not silently install skills.
 
-For another version, use its wheel URL from GitHub Releases. From a source
+To install a specific version or wheel directly, pass a version specifier such as
+`uv tool install 'obsread==0.1.0'` or a wheel URL from
+[GitHub Releases](https://github.com/hwei/obsread/releases). From a source
 checkout, use `uv tool install .` instead. To upgrade an existing installation,
-run `uv tool install --reinstall '<new release wheel URL>'`, then re-run the skill
-installer for each agent you use. Once PyPI publication is enabled, installation
-will also be available as `uv tool install obsread`.
+run `uv tool upgrade obsread` (or `uv tool install --reinstall '<wheel URL>'`
+when installing from a release URL), then re-run the skill installer for each
+agent you use.
 
 Check your saved vault with `obsread config show`.
 
@@ -190,9 +194,10 @@ skill behavior lives in `skills/obsread/SKILL.md`; acceptance cases live in test
 
 ## Releases
 
-GitHub Releases are the current distribution channel. PyPI publishing is opt-in
-and is disabled while the repository Actions variable `PUBLISH_PYPI` is unset or
-not `true`.
+Releases are distributed through both [PyPI](https://pypi.org/project/obsread/)
+and [GitHub Releases](https://github.com/hwei/obsread/releases). PyPI publishing
+is controlled by the repository Actions variable `PUBLISH_PYPI` (currently
+enabled as `true`) using PyPI Trusted Publishing.
 
 Update `project.version` in `pyproject.toml` and refresh `uv.lock`, commit, then
 push a matching tag such as `v0.1.0`. The release workflow:
@@ -202,16 +207,9 @@ push a matching tag such as `v0.1.0`. The release workflow:
 3. Packages the standalone skill as `obsread-skill.zip` and records SHA-256 hashes.
 4. Creates a GitHub Release containing distributions, the skill, checksums, and
    first-use instructions from `docs/release-notes.md`.
-5. If `PUBLISH_PYPI=true`, also publishes the Python distributions through PyPI
-   Trusted Publishing. GitHub publication does not depend on PyPI credentials.
+5. When `PUBLISH_PYPI=true`, publishes the Python distributions to PyPI through
+   Trusted Publishing (GitHub owner `hwei`, repository `obsread`, workflow
+   `release.yml`, environment `pypi`). GitHub publication does not depend on
+   PyPI credentials.
 
-To enable PyPI later, confirm the project name, configure a Trusted Publisher for
-GitHub owner `hwei`, repository `obsread`, workflow `release.yml`, and environment
-`pypi`, then set the repository variable:
-
-```sh
-gh variable set PUBLISH_PYPI --body true --repo hwei/obsread
-```
-
-The next version tag will publish to both destinations. The workflow does not
-automatically choose versions or publish on every commit.
+The workflow does not automatically choose versions or publish on every commit.
