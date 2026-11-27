@@ -275,3 +275,33 @@ def test_bom_crlf_and_invalid_utf8(tmp_path):
     assert read_reference(tmp_path, "[[Note.md#^id]]") == "line\n"
     (tmp_path / "Bad.md").write_bytes(b"\xff")
     assert_error(5, read_reference, tmp_path, "[[Bad]]")
+
+
+def test_missing_block_diagnostics_for_unclosed_fence_and_code():
+    broken_list_fence = "- ```\n  body\n\nhttps://example.com\n  ```\n- target ^id\n## Heading\n"
+    with pytest.raises(ObsreadError) as err:
+        extract(broken_list_fence, "^id")
+    assert err.value.code == 3
+    assert "line 6" in str(err.value)
+    assert "unclosed fenced code block starting at line 5" in str(err.value)
+
+    with pytest.raises(ObsreadError) as heading_err:
+        extract(broken_list_fence, "Heading")
+    assert heading_err.value.code == 3
+    assert "unclosed fenced code block starts at line 5" in str(heading_err.value)
+
+    with pytest.raises(ObsreadError) as closed_err:
+        extract("```md\n- fake ^id\n```\n", "^id")
+    assert closed_err.value.code == 3
+    assert "fenced code block starting at line 1" in str(closed_err.value)
+    assert "unclosed" not in str(closed_err.value)
+
+    with pytest.raises(ObsreadError) as fm_err:
+        extract("---\nprop: ^id\n---\nbody\n", "^id")
+    assert fm_err.value.code == 3
+    assert "line 2 inside YAML frontmatter" in str(fm_err.value)
+
+    with pytest.raises(ObsreadError) as inline_err:
+        extract("`code ^id\nmore`\n", "^id")
+    assert inline_err.value.code == 3
+    assert "line 1 inside inline code or escaped text" in str(inline_err.value)

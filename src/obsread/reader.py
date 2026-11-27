@@ -110,13 +110,15 @@ class Node:
             current = current.parent
 
 
-def _parse(source: str) -> list[Node]:
+def _parse(source: str) -> tuple[list[Node], int | None]:
     lines = source.splitlines(keepends=True)
+    frontmatter_end: int | None = None
     # Frontmatter is metadata, not a paragraph containing Obsidian blocks.
     if lines and lines[0].strip() == "---":
         end = next((i for i in range(1, len(lines)) if lines[i].strip() in {"---", "..."}), None)
         if end is None:
             raise ObsreadError("Unclosed YAML frontmatter", 5)
+        frontmatter_end = end
         lines[: end + 1] = ["\n"] * (end + 1)
     nodes: list[Node] = []
     stack: list[Node] = []
@@ -130,7 +132,7 @@ def _parse(source: str) -> list[Node]:
         nodes.append(node)
         if token.nesting == 1:
             stack.append(node)
-    return nodes
+    return nodes, frontmatter_end
 
 
 def _trim(lines: list[str]) -> list[str]:
@@ -185,6 +187,75 @@ def _text_ids(content: str) -> list[tuple[str, int]]:
     return found
 
 
+def _is_closing_fence(line: str, markup: str) -> bool:
+    stripped = line.lstrip(" ")
+    if len(line) - len(stripped) > 3 or not stripped.startswith(markup):
+        return False
+    rest = stripped[len(markup) :]
+    return not rest.rstrip(" \t").lstrip(markup[0])
+
+
+def _is_unclosed_fence(node: Node, lines: list[str]) -> bool:
+    if node.token.type != "fence" or node.token.map is None:
+        return False
+    start, end = node.span
+    return end == len(lines) and (
+        end - start <= 1 or not _is_closing_fence(lines[end - 1], node.token.markup)
+    )
+
+
+def _diagnose_missing_block_id(
+    lines: list[str],
+    nodes: list[Node],
+    frontmatter_end: int | None,
+    block_id: str,
+) -> str:
+    raw_rows = [
+        i for i, line in enumerate(lines) if (m := BLOCK_ID.search(line)) and m[1] == block_id
+    ]
+    if not raw_rows:
+        return f"Block not found: ^{block_id}"
+    row = raw_rows[0]
+    line_no = row + 1
+    if frontmatter_end is not None and row <= frontmatter_end:
+        return (
+            f"Block not found: ^{block_id} "
+            f"(found on line {line_no} inside YAML frontmatter; "
+            "frontmatter does not supply block IDs)"
+        )
+    for node in nodes:
+        if node.token.type not in {"fence", "code_block", "html_block"} or node.token.map is None:
+            continue
+        start, end = node.span
+        if not (start <= row < end):
+            continue
+        start_line = start + 1
+        if node.token.type == "fence":
+            if _is_unclosed_fence(node, lines):
+                return (
+                    f"Block not found: ^{block_id} "
+                    f"(found on line {line_no} inside an unclosed fenced code block starting at "
+                    f"line {start_line}; check for a missing closing fence or broken list-item "
+                    "indentation above it)"
+                )
+            return (
+                f"Block not found: ^{block_id} "
+                f"(found on line {line_no} inside a fenced code block starting at line "
+                f"{start_line}; code blocks do not supply block IDs)"
+            )
+        kind = "an indented code block" if node.token.type == "code_block" else "an HTML block"
+        return (
+            f"Block not found: ^{block_id} "
+            f"(found on line {line_no} inside {kind} starting at line {start_line}; "
+            "it does not supply block IDs)"
+        )
+    return (
+        f"Block not found: ^{block_id} "
+        f"(found on line {line_no} inside inline code or escaped text; "
+        "it does not supply a block ID)"
+    )
+
+
 def extract(source: str, fragment: str | None, parents: bool = False) -> str:
     source = source.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
     if fragment is None:
@@ -192,7 +263,7 @@ def extract(source: str, fragment: str | None, parents: bool = False) -> str:
             raise ObsreadError("--parents requires a list block reference.")
         return source if not source or source.endswith("\n") else source + "\n"
     lines = source.splitlines()
-    nodes = _parse(source)
+    nodes, frontmatter_end = _parse(source)
     if not fragment.startswith("^"):
         if parents:
             raise ObsreadError("--parents requires a list block reference.")
@@ -208,6 +279,16 @@ def extract(source: str, fragment: str | None, parents: bool = False) -> str:
             if fragment in {inline.content, visible}:
                 matched.append(heading)
         if not matched:
+            unclosed = next((n for n in nodes if _is_unclosed_fence(n, lines)), None)
+            if unclosed and any(
+                fragment in lines[i] for i in range(unclosed.span[0] + 1, unclosed.span[1])
+            ):
+                raise ObsreadError(
+                    f"Heading not found: {fragment} "
+                    f"(note: an unclosed fenced code block starts at line {unclosed.span[0] + 1}; "
+                    "check for a missing closing fence or broken list-item indentation)",
+                    3,
+                )
             raise ObsreadError(f"Heading not found: {fragment}", 3)
         if len(matched) != 1:
             raise ObsreadError(f"Ambiguous heading: {fragment}", 4)
@@ -240,7 +321,7 @@ def extract(source: str, fragment: str | None, parents: bool = False) -> str:
             if raw_match and raw_match[1] == block_id:
                 matched.append((node, row, raw_match))
     if not matched:
-        raise ObsreadError(f"Block not found: ^{block_id}", 3)
+        raise ObsreadError(_diagnose_missing_block_id(lines, nodes, frontmatter_end, block_id), 3)
     if len(matched) != 1:
         raise ObsreadError(f"Ambiguous block ID: ^{block_id}", 4)
     inline, row, match = matched[0]
